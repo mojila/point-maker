@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "migrate-xml-views-to-jetpack-compose": {
+      "source": "android/skills",
+      "sourceType": "github",
+      "skillPath": "jetpack-compose/migration/migrate-xml-views-to-jetpack-compose/SKILL.md",
+      "computedHash": "1d72a60e0e7dfaef31d57db36e98d598d9e28797520cf114c44972d89dc59fe7"
+    },
+    "prd-writer": {
+      "source": "pmprompt/claude-plugin-product-management",
+      "sourceType": "github",
+      "skillPath": "skills/prd-writer/SKILL.md",
+      "computedHash": "e6003b4e0ebd6f49688b8596d772150b51a25855b9df98a4aa3e55a828d21328"
+    },
+    "product-management": {
+      "source": "vasilyu1983/ai-agents-public",
+      "sourceType": "github",
+      "skillPath": "frameworks/shared-skills/skills/product-management/SKILL.md",
+      "computedHash": "78a89844000b8f5671b5a1a043c769706ba00f0d0741e7b4fcd804ca048fe6f5"
+    },
+    "subagent-driven-development": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/subagent-driven-development/SKILL.md",
+      "computedHash": "aacfc60b54e36c583bcc0746ba0d92cb8eb648728e4882e1d67b913ba7218536"
+    },
+    "test-driven-development": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/test-driven-development/SKILL.md",
+      "computedHash": "3cfe4ebb6fa7288f668d87880d279c8e48f7a92b63415e296857060f5ce22e05"
+    }
+  }
+}
