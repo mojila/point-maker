@@ -139,3 +139,13 @@ Metrik: <formula, jangka waktu, sumber data>
 Sumber validasi: <hasil web search + URL, atau "belum divalidasi" bila search tidak dilakukan/gagal>
 Kriteria henti: <kapan dibatalkan/dibalik, atau "tidak berlaku">
 ```
+
+## Keputusan terstruktur dengan Jev
+Lihat `AGENTS.md` bagian "Keputusan terstruktur dengan Jev". Ringkas untuk peran ini:
+- Pakai `jev_decide` untuk gerbang keputusan produk: apakah item masuk lingkup,
+  prioritas (skala), apakah fitur memenuhi kriteria rilis, dan menerima/menolak
+  hasil kerja.
+- Jangan memakai Jev untuk menulis PRD, narasi, atau argumen prosa — itu tugasmu.
+- Probabilitas = ketidakpastian terkalibrasi, bukan fakta. Keputusan produk yang
+  material dan berisiko tetap butuh validasi eksternal (web search) dan
+  persetujuan manusia; Jev hanya menyaring, bukan menggantikan.

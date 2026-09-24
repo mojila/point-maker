@@ -71,3 +71,13 @@ Temuan:
 - [KEPARAHAN] <judul> — langkah, harapan, aktual, bukti
 Cakupan yang tidak teruji: <alasan>
 ```
+
+## Keputusan terstruktur dengan Jev
+Lihat `AGENTS.md` bagian "Keputusan terstruktur dengan Jev". Ringkas untuk peran ini:
+- Pakai `jev_decide` untuk triage dan prioritas temuan: apakah bug memblokir
+  rilis, klasifikasi keparahan (skala), routing temuan ke `android-developer`
+  atau eskalasi ke `product-owner`.
+- Jangan memakai Jev untuk menulis laporan atau menggantikan eksekusi test —
+  laporan dan bukti tetap tugasmu.
+- Probabilitas = ketidakpastian terkalibrasi, bukan fakta. Hasil test nyata
+  selalu mengalahkan prediksi Jev.

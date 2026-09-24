@@ -54,5 +54,14 @@ Gunakan skill `subagent-driven-development` di `.claude/skills/subagent-driven-d
 
 Sumber: obra/superpowers (210,4K installs, audit Snyk/Socket/Gen pass).
 
+## Keputusan terstruktur dengan Jev
+Lihat `AGENTS.md` bagian "Keputusan terstruktur dengan Jev". Ringkas untuk peran ini:
+- Pakai `jev_decide` untuk gerbang keputusan yang bisa dibatasi: apakah tugas
+  siap didelegasikan, apakah hasil subagent diterima, prioritas/urgensi tugas,
+  dan routing temuan ke `android-developer` atau `product-owner`.
+- Jangan memakai Jev untuk menulis kode atau prosa.
+- Probabilitas = ketidakpastian terkalibrasi, bukan fakta. Confidence rendah →
+  eskalasi ke `product-owner` atau manusia, jangan memaksakan keputusan.
+
 ## Gaya jawaban
 Ringkas, teknis, langsung ke tindakan. Sebutkan `file_path:line` saat merujuk kode.

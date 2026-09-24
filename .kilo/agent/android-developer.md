@@ -75,3 +75,12 @@ Sumber: android/skills (resmi Google, 1,9K installs, audit Snyk/Socket/Gen pass)
 - Tanpa komentar kecuali diminta.
 - Fungsi kecil, nama jelas, state immutable.
 - Jangan menambah dependensi di luar kebutuhan tanpa alasan.
+
+## Keputusan terstruktur dengan Jev
+Lihat `AGENTS.md` bagian "Keputusan terstruktur dengan Jev". Ringkas untuk peran ini:
+- Pakai `jev_decide` untuk keputusan teknis yang bisa dibatasi: apakah perubahan
+  aman dijalankan, apakah perlu test tambahan, klasifikasi jenis perubahan
+  (bug/fitur/refactor), atau memilih pendekatan di antara opsi bernama.
+- Jangan memakai Jev untuk menulis kode, komentar, atau dokumentasi.
+- Probabilitas = ketidakpastian terkalibrasi, bukan fakta. Bila confidence
+  rendah, tanyakan ke orchestrator alih-alih menebak.
