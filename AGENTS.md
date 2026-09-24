@@ -48,3 +48,8 @@ Aturan pemakaian:
 
 Pintasan: command `/jev <permintaan>` menjalankan subagent `decision-agent`
 yang khusus menangani panggilan Jev.
+
+Implementasi portabel ada di dalam repo (`.opencode/plugins/jev-decision.ts`,
+`.opencode/agents/decision-agent.md`, `.opencode/commands/jev.md`) sehingga ikut
+ter-clone tanpa `npm install`. Rincian, prasyarat API key, dan batas pemakaian:
+lihat `.opencode/JEV.md`.
