@@ -64,8 +64,10 @@ Pola: skor dibaca **mulai dari sisi pencetak poin terakhir (server-first), lalu 
 | Set berakhir | "Set pertama untuk kiri, dua puluh satu delapan belas" |
 | Ganti set | "Set kedua, mulai" |
 | Pertandingan berakhir | "Pertandingan selesai. Pemenang: kiri, dua set nol" |
-| Batas 30 | "Tiga puluh dua puluh sembilan. Set point untuk kiri" |
+| Batas 30 | "Set pertama untuk kiri, tiga puluh dua puluh sembilan" |
 | Mendekati akhir set | "Dua puluh, sembilan belas. Set point untuk kanan" |
+
+Sufiks "Set point"/"Match point" hanya diucapkan pada reli yang **menciptakan** peluang itu. Reli yang **menutup** set tidak menyebut sufiks tersebut: yang diucapkan hanya skor lalu pengumuman pemenang set.
 
 **Catatan teknis TTS (validasi Android API):**
 - TTS hanya boleh dipakai setelah inisialisasi sukses (`onInit` = SUCCESS).

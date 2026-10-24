@@ -62,21 +62,35 @@ class ScoreFormatterTest {
         val before = stateAt(19, 18)
         val after = MatchRules.addPoint(before, Side.LEFT)
 
-        assertEquals("dua puluh, delapan belas. Set point untuk kiri", ScoreFormatter.pointCall(after))
+        assertEquals(
+            listOf("dua puluh, delapan belas. Set point untuk kiri"),
+            Announcement.forPoint(before, after, Side.LEFT).texts
+        )
     }
 
     @Test
-    fun `match point untuk kanan`() {
+    fun `poin penutup set oleh kanan tidak menyebut match point`() {
         val before = stateAt(18, 20, setsRight = 1)
         val after = MatchRules.addPoint(before, Side.RIGHT)
 
         assertEquals(
-            "dua puluh satu, delapan belas. Match point untuk kanan",
-            ScoreFormatter.announcePoint(before, after, Side.RIGHT)
+            listOf(
+                "dua puluh satu, delapan belas",
+                "Set pertama untuk kanan, dua puluh satu delapan belas",
+                "Pertandingan selesai. Pemenang: kanan, dua set nol"
+            ),
+            Announcement.forPoint(before, after, Side.RIGHT).texts
         )
+    }
+
+    @Test
+    fun `sufiks match point muncul saat set point tercipta bukan saat set ditutup`() {
+        val before = stateAt(19, 18, setsLeft = 1)
+        val after = MatchRules.addPoint(before, Side.LEFT)
+
         assertEquals(
-            "dua puluh satu, delapan belas. Match point untuk kanan",
-            ScoreFormatter.announcements(before, after, Side.RIGHT).first()
+            listOf("dua puluh, delapan belas. Match point untuk kiri"),
+            Announcement.forPoint(before, after, Side.LEFT).texts
         )
     }
 
@@ -98,13 +112,16 @@ class ScoreFormatterTest {
     }
 
     @Test
-    fun `batas 30 diucapkan tiga puluh dua puluh sembilan`() {
+    fun `batas 30 diucapkan tanpa set point karena set selesai`() {
         val before = stateAt(29, 29)
         val after = MatchRules.addPoint(before, Side.LEFT)
 
         assertEquals(
-            "tiga puluh dua puluh sembilan. Set point untuk kiri",
-            ScoreFormatter.announcePoint(before, after, Side.LEFT)
+            listOf(
+                "tiga puluh, dua puluh sembilan",
+                "Set pertama untuk kiri, tiga puluh dua puluh sembilan"
+            ),
+            ScoreFormatter.announcements(before, after, Side.LEFT)
         )
     }
 
@@ -123,7 +140,7 @@ class ScoreFormatterTest {
 
         assertEquals(
             listOf(
-                "dua puluh satu, tujuh belas. Set point untuk kiri",
+                "dua puluh satu, tujuh belas",
                 "Set pertama untuk kiri, dua puluh satu tujuh belas"
             ),
             ScoreFormatter.announcements(before, after, Side.LEFT)
@@ -137,7 +154,7 @@ class ScoreFormatterTest {
 
         assertEquals(
             listOf(
-                "dua puluh satu, delapan belas. Set point untuk kanan",
+                "dua puluh satu, delapan belas",
                 "Set pertama untuk kanan, dua puluh satu delapan belas"
             ),
             ScoreFormatter.announcements(before, after, Side.RIGHT)
@@ -152,7 +169,7 @@ class ScoreFormatterTest {
         val texts = ScoreFormatter.announcements(before, after, Side.LEFT)
 
         assertEquals(3, texts.size)
-        assertEquals("dua puluh satu, sepuluh. Match point untuk kiri", texts[0])
+        assertEquals("dua puluh satu, sepuluh", texts[0])
         assertEquals("Set kedua untuk kiri, dua puluh satu sepuluh", texts[1])
         assertEquals("Pertandingan selesai. Pemenang: kiri, dua set nol", texts[2])
     }
@@ -223,16 +240,24 @@ class ScoreFormatterTest {
 
     @Test
     fun `baris 5 set point kanan 19-19 menjadi 19-20`() {
-        val after = MatchRules.addPoint(stateAt(19, 19), Side.RIGHT)
+        val before = stateAt(19, 19)
+        val after = MatchRules.addPoint(before, Side.RIGHT)
 
-        assertEquals("dua puluh, sembilan belas. Set point untuk kanan", ScoreFormatter.pointCall(after, Side.RIGHT))
+        assertEquals(
+            listOf("dua puluh, sembilan belas. Set point untuk kanan"),
+            Announcement.forPoint(before, after, Side.RIGHT).texts
+        )
     }
 
     @Test
     fun `baris 6 match point kanan 19-19 menjadi 19-20`() {
-        val after = MatchRules.addPoint(stateAt(19, 19, setsRight = 1), Side.RIGHT)
+        val before = stateAt(19, 19, setsRight = 1)
+        val after = MatchRules.addPoint(before, Side.RIGHT)
 
-        assertEquals("dua puluh, sembilan belas. Match point untuk kanan", ScoreFormatter.pointCall(after, Side.RIGHT))
+        assertEquals(
+            listOf("dua puluh, sembilan belas. Match point untuk kanan"),
+            Announcement.forPoint(before, after, Side.RIGHT).texts
+        )
     }
 
     @Test
@@ -242,9 +267,13 @@ class ScoreFormatterTest {
 
     @Test
     fun `baris 8 set point kiri setelah deuce`() {
-        val after = MatchRules.addPoint(stateAt(20, 20), Side.LEFT)
+        val before = stateAt(20, 20)
+        val after = MatchRules.addPoint(before, Side.LEFT)
 
-        assertEquals("dua puluh satu, dua puluh. Set point untuk kiri", ScoreFormatter.pointCall(after, Side.LEFT))
+        assertEquals(
+            listOf("dua puluh satu, dua puluh. Set point untuk kiri"),
+            Announcement.forPoint(before, after, Side.LEFT).texts
+        )
     }
 
     @Test
@@ -361,8 +390,7 @@ class ScoreFormatterTest {
     }
 
     @Test
-    fun `jumlah kata panggilan poin tidak bertambah`() {
-        val before = stateAt(5, 8)
+    fun `jumlah kata panggilan poin tidak bertambah`() {        val before = stateAt(5, 8)
         val after = MatchRules.addPoint(before, Side.RIGHT)
         val plain = ScoreFormatter.announcements(before, after, Side.RIGHT).single()
         val plainBaseline = "${ScoreFormatter.number(5)}, ${ScoreFormatter.number(9)}"
@@ -375,5 +403,48 @@ class ScoreFormatterTest {
             "${ScoreFormatter.number(19)}, ${ScoreFormatter.number(20)}. Set point untuk kanan"
 
         assertEquals(setPointBaseline.split(" ").size, setPoint.split(" ").size)
+    }
+
+    @Test
+    fun `banner status dan ucapan sepakat soal set point dan akhir set`() {
+        val matchPointBefore = stateAt(19, 18, setsLeft = 1)
+        val matchPointAfter = MatchRules.addPoint(matchPointBefore, Side.LEFT)
+        assertEquals("Match point", AnnouncementText.statusBanner(matchPointAfter, Side.LEFT))
+        assertEquals(
+            listOf("dua puluh, delapan belas. Match point untuk kiri"),
+            Announcement.forPoint(matchPointBefore, matchPointAfter, Side.LEFT).texts
+        )
+
+        val setPointBefore = stateAt(19, 18)
+        val setPointAfter = MatchRules.addPoint(setPointBefore, Side.LEFT)
+        assertEquals("Set point", AnnouncementText.statusBanner(setPointAfter, Side.LEFT))
+        assertEquals(
+            listOf("dua puluh, delapan belas. Set point untuk kiri"),
+            Announcement.forPoint(setPointBefore, setPointAfter, Side.LEFT).texts
+        )
+
+        val setWonBefore = stateAt(20, 18)
+        val setWonAfter = MatchRules.addPoint(setWonBefore, Side.LEFT)
+        assertEquals("Set pertama untuk kiri", AnnouncementText.statusBanner(setWonAfter, Side.LEFT))
+        assertEquals(
+            listOf("dua puluh satu, delapan belas", "Set pertama untuk kiri, dua puluh satu delapan belas"),
+            Announcement.forPoint(setWonBefore, setWonAfter, Side.LEFT).texts
+        )
+
+        val capBefore = stateAt(29, 29)
+        val capAfter = MatchRules.addPoint(capBefore, Side.LEFT)
+        assertEquals("Set pertama untuk kiri", AnnouncementText.statusBanner(capAfter, Side.LEFT))
+        assertEquals(
+            listOf("tiga puluh, dua puluh sembilan", "Set pertama untuk kiri, tiga puluh dua puluh sembilan"),
+            Announcement.forPoint(capBefore, capAfter, Side.LEFT).texts
+        )
+
+        val deuceBefore = stateAt(19, 20)
+        val deuceAfter = MatchRules.addPoint(deuceBefore, Side.LEFT)
+        assertEquals("Deuce", AnnouncementText.statusBanner(deuceAfter, Side.LEFT))
+        assertEquals(
+            listOf("dua puluh sama. Deuce"),
+            Announcement.forPoint(deuceBefore, deuceAfter, Side.LEFT).texts
+        )
     }
 }

@@ -50,8 +50,7 @@ object ScoreFormatter {
             return "$score. Match point untuk ${sideName(scoringSide)}"
         }
         if (MatchRules.isSetPoint(state, scoringSide)) {
-            return if (state.pointsOf(scoringSide) >= MatchRules.HARD_CAP) limitedThirty(scoringSide)
-            else "$score. Set point untuk ${sideName(scoringSide)}"
+            return "$score. Set point untuk ${sideName(scoringSide)}"
         }
         return score
     }
@@ -72,9 +71,6 @@ object ScoreFormatter {
 
     fun deuce(): String = "dua puluh sama. Deuce"
 
-    fun limitedThirty(setPointSide: Side): String =
-        "tiga puluh dua puluh sembilan. Set point untuk ${sideName(setPointSide)}"
-
     fun setFinished(winner: Side, setNumber: Int, left: Int, right: Int): String =
         "Set ${setOrdinal(setNumber)} untuk ${sideName(winner)}, ${scorePairSpaced(winner, left, right)}"
 
@@ -90,12 +86,11 @@ object ScoreFormatter {
         val scoring = MatchRules.scoredOnly(before, scoringSide)
         if (MatchRules.isDeuce(scoring)) return deuce()
         val score = scorePair(scoringSide, scoring.leftPoints, scoring.rightPoints)
-        if (MatchRules.isMatchPointBeforeSetClosure(before, scoringSide)) {
+        if (MatchRules.isMatchPoint(scoring, scoringSide)) {
             return "$score. Match point untuk ${sideName(scoringSide)}"
         }
-        if (MatchRules.isSetPointBeforeSetClosure(before, scoringSide)) {
-            return if (scoring.pointsOf(scoringSide) >= MatchRules.HARD_CAP) limitedThirty(scoringSide)
-            else "$score. Set point untuk ${sideName(scoringSide)}"
+        if (MatchRules.isSetPoint(scoring, scoringSide)) {
+            return "$score. Set point untuk ${sideName(scoringSide)}"
         }
         return score
     }
