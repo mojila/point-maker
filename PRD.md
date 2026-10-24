@@ -52,20 +52,22 @@ Lihat §9.
 
 ## 5. Format Ucapan TTS (Mengikat)
 
-Pola: skor dibaca **kiri dulu, lalu kanan**. Angka diucapkan sebagai **kata**, bukan digit.
+Pola: skor dibaca **mulai dari sisi pencetak poin terakhir (server-first), lalu angka lawan**. Angka diucapkan sebagai **kata**, bukan digit.
 
 | Situasi | Ucapan |
 |---------|--------|
 | Poin biasa | "Tujuh belas, lima belas" |
-| Skor nol | "Nol, tiga" |
+| Skor nol | "Tiga, nol" |
 | Set point | "Dua puluh, delapan belas. Set point untuk kiri" |
 | Match point | "Dua puluh, sembilan belas. Match point untuk kanan" |
 | Deuce | "Dua puluh sama. Deuce" |
 | Set berakhir | "Set pertama untuk kiri, dua puluh satu delapan belas" |
 | Ganti set | "Set kedua, mulai" |
 | Pertandingan berakhir | "Pertandingan selesai. Pemenang: kiri, dua set nol" |
-| Batas 30 | "Tiga puluh dua puluh sembilan. Set point untuk kiri" |
-| Mendekati akhir set | "Sembilan belas, dua puluh. Set point untuk kanan" |
+| Batas 30 | "Set pertama untuk kiri, tiga puluh dua puluh sembilan" |
+| Mendekati akhir set | "Dua puluh, sembilan belas. Set point untuk kanan" |
+
+Sufiks "Set point"/"Match point" hanya diucapkan pada reli yang **menciptakan** peluang itu. Reli yang **menutup** set tidak menyebut sufiks tersebut: yang diucapkan hanya skor lalu pengumuman pemenang set.
 
 **Catatan teknis TTS (validasi Android API):**
 - TTS hanya boleh dipakai setelah inisialisasi sukses (`onInit` = SUCCESS).
@@ -96,7 +98,7 @@ Tidak ada layar login, riwayat, atau setup awal.
 1. Pada 20-20, poin berikutnya **tidak** mengakhiri set; set berakhir hanya saat selisih 2.
 2. Pada 29-29, poin ke-30 mengakhiri set 30-29.
 3. Pertandingan berakhir tepat saat satu pihak menang 2 set; tombol tambah poin berhenti bekerja.
-4. Setiap perubahan skor memicu **tepat satu** ucapan, angka sebagai kata (bukan digit), urutan kiri lalu kanan.
+4. Setiap perubahan skor memicu **tepat satu** ucapan, angka sebagai kata (bukan digit), angka sisi pencetak poin terakhir lebih dulu (server-first).
 5. Tidak ada ucapan tumpang-tindih atau antrean menumpuk saat tombol ditekan cepat berulang.
 6. Undo mengembalikan state satu langkah; Reset meminta konfirmasi dan tidak menghapus skor tanpa konfirmasi.
 7. State skor utuh setelah rotasi layar dan setelah proses aplikasi dimatikan sistem lalu dibuka lagi.

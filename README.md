@@ -16,7 +16,7 @@ Tersedia dua target:
 ## 1. Fitur
 
 - Aturan skoring BWF: rally point 21, deuce 20-20 (selisih 2), batas 30, best of 3.
-- Ucapan skor otomatis dalam Bahasa Indonesia, angka sebagai kata, kiri lalu kanan.
+- Ucapan skor otomatis dalam Bahasa Indonesia, angka sebagai kata, angka sisi pencetak poin terakhir lebih dulu.
 - Tambah poin kiri/kanan dengan satu ketukan.
 - Undo satu langkah, reset dengan dialog konfirmasi.
 - Akhir set & akhir pertandingan otomatis, plus ucapan pemenang.

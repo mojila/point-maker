@@ -20,9 +20,13 @@ object ScoreFormatter {
 
     fun sideName(side: Side): String = if (side == Side.LEFT) "kiri" else "kanan"
 
-    fun scorePair(left: Int, right: Int): String = "${number(left)}, ${number(right)}"
+    fun scorePair(scoringSide: Side, left: Int, right: Int): String =
+        if (scoringSide == Side.LEFT) "${number(left)}, ${number(right)}"
+        else "${number(right)}, ${number(left)}"
 
-    fun scorePairSpaced(left: Int, right: Int): String = "${number(left)} ${number(right)}"
+    fun scorePairSpaced(scoringSide: Side, left: Int, right: Int): String =
+        if (scoringSide == Side.LEFT) "${number(left)} ${number(right)}"
+        else "${number(right)} ${number(left)}"
 
     fun setOrdinal(setNumber: Int): String = when (setNumber) {
         1 -> "pertama"
@@ -31,17 +35,22 @@ object ScoreFormatter {
         else -> error("set hanya 1..3: $setNumber")
     }
 
+    /**
+     * Panggilan skor tanpa sisi eksplisit; hanya untuk test.
+     *
+     * Jalur produksi wajib memakai [pointCall] dua argumen karena [scoringSideOf] dapat salah
+     * menyimpulkan sisi saat lawan masih unggul setelah poin dicetak (mis. 10-5 menjadi 10-6).
+     */
     fun pointCall(state: MatchState): String = pointCall(state, scoringSideOf(state))
 
     fun pointCall(state: MatchState, scoringSide: Side): String {
         if (MatchRules.isDeuce(state)) return deuce()
-        val score = scorePair(state.leftPoints, state.rightPoints)
+        val score = scorePair(scoringSide, state.leftPoints, state.rightPoints)
         if (MatchRules.isMatchPoint(state, scoringSide)) {
             return "$score. Match point untuk ${sideName(scoringSide)}"
         }
         if (MatchRules.isSetPoint(state, scoringSide)) {
-            return if (state.pointsOf(scoringSide) >= MatchRules.HARD_CAP) limitedThirty(scoringSide)
-            else "$score. Set point untuk ${sideName(scoringSide)}"
+            return "$score. Set point untuk ${sideName(scoringSide)}"
         }
         return score
     }
@@ -62,11 +71,8 @@ object ScoreFormatter {
 
     fun deuce(): String = "dua puluh sama. Deuce"
 
-    fun limitedThirty(setPointSide: Side): String =
-        "tiga puluh dua puluh sembilan. Set point untuk ${sideName(setPointSide)}"
-
     fun setFinished(winner: Side, setNumber: Int, left: Int, right: Int): String =
-        "Set ${setOrdinal(setNumber)} untuk ${sideName(winner)}, ${scorePairSpaced(left, right)}"
+        "Set ${setOrdinal(setNumber)} untuk ${sideName(winner)}, ${scorePairSpaced(winner, left, right)}"
 
     fun nextSetStart(setNumber: Int): String = "Set ${setOrdinal(setNumber)}, mulai"
 
@@ -79,13 +85,12 @@ object ScoreFormatter {
     private fun scoringCall(before: MatchState, scoringSide: Side): String {
         val scoring = MatchRules.scoredOnly(before, scoringSide)
         if (MatchRules.isDeuce(scoring)) return deuce()
-        val score = scorePair(scoring.leftPoints, scoring.rightPoints)
-        if (MatchRules.isMatchPointBeforeSetClosure(before, scoringSide)) {
+        val score = scorePair(scoringSide, scoring.leftPoints, scoring.rightPoints)
+        if (MatchRules.isMatchPoint(scoring, scoringSide)) {
             return "$score. Match point untuk ${sideName(scoringSide)}"
         }
-        if (MatchRules.isSetPointBeforeSetClosure(before, scoringSide)) {
-            return if (scoring.pointsOf(scoringSide) >= MatchRules.HARD_CAP) limitedThirty(scoringSide)
-            else "$score. Set point untuk ${sideName(scoringSide)}"
+        if (MatchRules.isSetPoint(scoring, scoringSide)) {
+            return "$score. Set point untuk ${sideName(scoringSide)}"
         }
         return score
     }

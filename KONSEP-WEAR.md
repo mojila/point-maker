@@ -60,7 +60,7 @@ tantangan utama.
 | # | Fitur | Kriteria inti |
 |---|-------|---------------|
 | 1 | Logika skoring BWF | **Pakai ulang `domain/` yang sama** dengan versi HP — nol duplikasi aturan |
-| 2 | Ucapan skor TTS Bahasa Indonesia | Angka sebagai kata, kiri lalu kanan, satu reli satu ucapan |
+| 2 | Ucapan skor TTS Bahasa Indonesia | Angka sebagai kata, sisi pencetak poin terakhir lebih dulu, satu reli satu ucapan |
 | 3 | Tambah poin kiri/kanan | Dua zona ketuk, satu ketukan = satu poin |
 | 4 | **Haptik konfirmasi** | Getaran tiap ketukan — kanal umpan balik kedua saat layar tidak dilihat |
 | 5 | Undo satu langkah | Mengembalikan state sebelumnya |
@@ -168,7 +168,7 @@ Aplikasi jam memutar bunyi cue pendek **sebelum** TTS saat poin bertambah, demi 
 1. **Paritas aturan:** suite unit test `domain/` yang sama lulus 100% (20-20 selisih 2,
    29-29 → 30-29, best of 3 berhenti tepat saat 2 set).
 2. **Akurasi ucapan:** setiap perubahan skor memicu **tepat satu** ucapan "X - Y", angka sebagai
-   kata, urutan kiri lalu kanan; latensi awal **< 300 ms** terukur di perangkat target; tidak ada
+   kata, angka sisi pencetak poin terakhir lebih dulu (server-first); latensi awal **< 300 ms** terukur di perangkat target; tidak ada
    antrean menumpuk saat ketukan cepat.
 3. **Degradasi suara aman:** TTS/voice Indonesia tidak tersedia → tidak crash, haptik tetap
    berfungsi, indikator status suara jelas.
