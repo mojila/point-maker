@@ -4,6 +4,14 @@ import android.content.Context
 import android.media.MediaPlayer
 import android.util.Log
 
+/**
+ * Pemutar bunyi cue satu tembakan untuk jam.
+ *
+ * MediaPlayer yang sudah masuk status error tidak boleh dipakai ulang: `seekTo`/`start` akan
+ * melempar `IllegalStateException`. Karena itu player yang error langsung di-release dan di-null
+ * kan, lalu reli berikutnya membuat player baru. Bila `start` tetap gagal setelah dibuat ulang,
+ * callback `onComplete` dipanggil agar rangkaian suara tidak tertahan.
+ */
 class WearPointCuePlayer(context: Context) {
 
     private val appContext = context.applicationContext
@@ -23,30 +31,56 @@ class WearPointCuePlayer(context: Context) {
         val token = ++generation
         pendingToken = token
         pendingComplete = onComplete
-        try {
-            val current = player
-            if (current == null) {
-                val created = MediaPlayer.create(appContext, R.raw.point_cue)
-                if (created == null) {
-                    Log.e(TAG, "Aset point_cue tidak dapat dimuat")
-                    complete(token)
-                    return
-                }
-                created.setOnCompletionListener { complete(pendingToken) }
-                created.setOnErrorListener { _, what, extra ->
-                    Log.e(TAG, "MediaPlayer error what=$what extra=$extra")
-                    complete(pendingToken)
-                    true
-                }
-                player = created
-                created.start()
-            } else {
-                current.seekTo(0)
-                current.start()
-            }
-        } catch (error: Throwable) {
-            Log.e(TAG, "play() gagal", error)
+        val current = player
+        if (current == null) {
+            if (!startFresh(token)) complete(token)
+            return
+        }
+        if (startExisting(current, token)) return
+        if (!startFresh(token)) complete(token)
+    }
+
+    private fun startExisting(current: MediaPlayer, token: Long): Boolean = try {
+        bindListeners(current, token)
+        current.seekTo(0)
+        current.start()
+        true
+    } catch (error: RuntimeException) {
+        Log.e(TAG, "seekTo/start gagal, player akan dibuat ulang", error)
+        releaseCurrent()
+        false
+    }
+
+    private fun bindListeners(target: MediaPlayer, token: Long) {
+        target.setOnCompletionListener { complete(token) }
+        target.setOnErrorListener { _, what, extra ->
+            Log.e(TAG, "MediaPlayer error what=$what extra=$extra")
+            releaseCurrent()
             complete(token)
+            true
+        }
+    }
+
+    private fun startFresh(token: Long): Boolean {
+        val created = try {
+            MediaPlayer.create(appContext, R.raw.point_cue)
+        } catch (error: RuntimeException) {
+            Log.e(TAG, "MediaPlayer.create gagal", error)
+            null
+        }
+        if (created == null) {
+            Log.e(TAG, "Aset point_cue tidak dapat dimuat")
+            return false
+        }
+        bindListeners(created, token)
+        player = created
+        return try {
+            created.start()
+            true
+        } catch (error: RuntimeException) {
+            Log.e(TAG, "start() gagal pada player baru", error)
+            releaseCurrent()
+            false
         }
     }
 
@@ -55,10 +89,15 @@ class WearPointCuePlayer(context: Context) {
         released = true
         generation++
         pendingComplete = null
+        releaseCurrent()
+    }
+
+    private fun releaseCurrent() {
         val current = player
         player = null
+        if (current == null) return
         try {
-            current?.release()
+            current.release()
         } catch (error: Throwable) {
             Log.e(TAG, "release() gagal", error)
         }
