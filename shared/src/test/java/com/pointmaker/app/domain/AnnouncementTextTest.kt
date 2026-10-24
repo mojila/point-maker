@@ -40,31 +40,54 @@ class AnnouncementTextTest {
 
     @Test
     fun statusBannerPrefersMatchFinished() {
-        val finished = MatchState(setsWonLeft = 2, leftPoints = 21, rightPoints = 19, matchFinished = true)
+        val finished = MatchState(
+            preset = ScoringPreset.TWENTY_ONE,
+            setsWonLeft = 2,
+            leftPoints = 21,
+            rightPoints = 19,
+            matchFinished = true
+        )
         assertEquals("Pertandingan selesai", AnnouncementText.statusBanner(finished, Side.RIGHT))
     }
 
     @Test
     fun statusBannerReportsSetFinishedBeforePointStates() {
-        val setFinished = MatchState(currentSet = 2, leftPoints = 21, rightPoints = 19, setsWonLeft = 1)
+        val setFinished = MatchState(
+            preset = ScoringPreset.TWENTY_ONE,
+            currentSet = 2,
+            leftPoints = 21,
+            rightPoints = 19,
+            setsWonLeft = 1
+        )
         assertEquals("Set kedua untuk kiri", AnnouncementText.statusBanner(setFinished, Side.RIGHT))
     }
 
     @Test
     fun statusBannerReportsMatchPointBeforeSetPoint() {
-        val matchPoint = MatchState(leftPoints = 20, rightPoints = 5, setsWonLeft = 1)
+        val matchPoint = MatchState(
+            preset = ScoringPreset.TWENTY_ONE,
+            leftPoints = 20,
+            rightPoints = 5,
+            setsWonLeft = 1
+        )
         assertEquals("Match point", AnnouncementText.statusBanner(matchPoint, Side.LEFT))
     }
 
     @Test
     fun statusBannerReportsSetPointBeforeDeuce() {
-        val setPoint = MatchState(leftPoints = 20, rightPoints = 18)
+        val setPoint = MatchState(preset = ScoringPreset.TWENTY_ONE, leftPoints = 20, rightPoints = 18)
         assertEquals("Set point", AnnouncementText.statusBanner(setPoint, Side.LEFT))
     }
 
     @Test
     fun statusBannerReportsDeuce() {
-        val deuce = MatchState(leftPoints = 20, rightPoints = 20)
+        val deuce = MatchState(preset = ScoringPreset.TWENTY_ONE, leftPoints = 20, rightPoints = 20)
+        assertEquals("Deuce", AnnouncementText.statusBanner(deuce, Side.LEFT))
+    }
+
+    @Test
+    fun statusBannerReportsDeuceFor15x3() {
+        val deuce = MatchState(preset = ScoringPreset.FIFTEEN, leftPoints = 14, rightPoints = 14)
         assertEquals("Deuce", AnnouncementText.statusBanner(deuce, Side.LEFT))
     }
 

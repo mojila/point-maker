@@ -2,9 +2,6 @@ package com.pointmaker.app.domain
 
 object MatchRules {
 
-    const val POINTS_TO_WIN_SET = 21
-    const val DEUCE_POINTS = 20
-    const val HARD_CAP = 30
     const val SETS_TO_WIN_MATCH = 2
     const val MAX_SETS = 3
 
@@ -26,15 +23,26 @@ object MatchRules {
         return state.copy(currentSet = state.currentSet + 1, leftPoints = 0, rightPoints = 0).pushHistory(state)
     }
 
+    fun canChangePreset(state: MatchState): Boolean =
+        state.leftPoints == 0 &&
+            state.rightPoints == 0 &&
+            state.currentSet == 1 &&
+            state.completedSets.isEmpty() &&
+            !state.matchFinished
+
+    fun setPreset(state: MatchState, preset: ScoringPreset): MatchState =
+        if (!canChangePreset(state) || state.preset == preset) state else state.copy(preset = preset)
+
     fun isSetFinished(state: MatchState): Boolean = setWinner(state) != null
 
     fun setWinner(state: MatchState): Side? {
         val left = state.leftPoints
         val right = state.rightPoints
-        if (left >= HARD_CAP) return Side.LEFT
-        if (right >= HARD_CAP) return Side.RIGHT
-        if (left >= POINTS_TO_WIN_SET && left - right >= 2) return Side.LEFT
-        if (right >= POINTS_TO_WIN_SET && right - left >= 2) return Side.RIGHT
+        val preset = state.preset
+        if (left >= preset.hardCap) return Side.LEFT
+        if (right >= preset.hardCap) return Side.RIGHT
+        if (left >= preset.pointsToWin && left - right >= 2) return Side.LEFT
+        if (right >= preset.pointsToWin && right - left >= 2) return Side.RIGHT
         return null
     }
 
@@ -52,7 +60,7 @@ object MatchRules {
     }
 
     fun setTarget(state: MatchState, side: Side): Int =
-        minOf(HARD_CAP, maxOf(POINTS_TO_WIN_SET, state.pointsOf(side.opponent()) + 2))
+        minOf(state.preset.hardCap, maxOf(state.preset.pointsToWin, state.pointsOf(side.opponent()) + 2))
 
     fun pointsToWinSet(state: MatchState, side: Side): Int =
         setTarget(state, side) - state.pointsOf(side)
@@ -70,7 +78,7 @@ object MatchRules {
         isSetPointBeforeSetClosure(state, side) && state.setsWonOf(side) == SETS_TO_WIN_MATCH - 1
 
     fun isDeuce(state: MatchState): Boolean =
-        state.leftPoints == DEUCE_POINTS && state.rightPoints == DEUCE_POINTS
+        state.leftPoints == state.preset.deucePoints && state.rightPoints == state.preset.deucePoints
 
     private fun withPoint(state: MatchState, side: Side): MatchState =
         if (side == Side.LEFT) state.copy(leftPoints = state.leftPoints + 1)

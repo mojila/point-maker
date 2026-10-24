@@ -2,6 +2,7 @@ package com.pointmaker.app.ui
 
 import com.pointmaker.app.domain.MatchRules
 import com.pointmaker.app.domain.MatchState
+import com.pointmaker.app.domain.ScoringPreset
 import com.pointmaker.app.domain.Side
 
 /**
@@ -12,6 +13,7 @@ import com.pointmaker.app.domain.Side
  * logika coercion dapat diuji unit tanpa Android.
  */
 data class MatchStateSnapshot(
+    val preset: ScoringPreset = ScoringPreset.DEFAULT,
     val currentSet: Int = 1,
     val leftPoints: Int = 0,
     val rightPoints: Int = 0,
@@ -22,15 +24,16 @@ data class MatchStateSnapshot(
     val matchFinished: Boolean = false
 ) {
     fun toState(): MatchState = MatchState(
+        preset = preset,
         currentSet = currentSet.coerceIn(1, MatchRules.MAX_SETS),
-        leftPoints = leftPoints.coerceIn(0, MatchRules.HARD_CAP),
-        rightPoints = rightPoints.coerceIn(0, MatchRules.HARD_CAP),
+        leftPoints = leftPoints.coerceIn(0, preset.hardCap),
+        rightPoints = rightPoints.coerceIn(0, preset.hardCap),
         setsWonLeft = setsWonLeft.coerceIn(0, MatchRules.SETS_TO_WIN_MATCH),
         setsWonRight = setsWonRight.coerceIn(0, MatchRules.SETS_TO_WIN_MATCH),
         completedSets = completedSets
             .take(MatchRules.MAX_SETS)
             .map { (left, right) ->
-                left.coerceIn(0, MatchRules.HARD_CAP) to right.coerceIn(0, MatchRules.HARD_CAP)
+                left.coerceIn(0, preset.hardCap) to right.coerceIn(0, preset.hardCap)
             },
         servingSide = servingSide,
         matchFinished = matchFinished,
@@ -39,6 +42,7 @@ data class MatchStateSnapshot(
 
     companion object {
         fun fromState(state: MatchState): MatchStateSnapshot = MatchStateSnapshot(
+            preset = state.preset,
             currentSet = state.currentSet,
             leftPoints = state.leftPoints,
             rightPoints = state.rightPoints,

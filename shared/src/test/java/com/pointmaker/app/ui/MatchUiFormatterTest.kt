@@ -2,6 +2,7 @@ package com.pointmaker.app.ui
 
 import com.pointmaker.app.domain.MatchRules
 import com.pointmaker.app.domain.MatchState
+import com.pointmaker.app.domain.ScoringPreset
 import com.pointmaker.app.domain.Side
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -26,12 +27,12 @@ class MatchUiFormatterTest {
 
     @Test
     fun canAddPointTrueDuringPlay() {
-        assertTrue(MatchUiFormatter.canAddPoint(MatchState(leftPoints = 20, rightPoints = 19)))
+        assertTrue(MatchUiFormatter.canAddPoint(MatchState(preset = ScoringPreset.TWENTY_ONE, leftPoints = 20, rightPoints = 19)))
     }
 
     @Test
     fun canAddPointFalseAfterSetEnds() {
-        val finished = MatchRules.addPoint(MatchState(leftPoints = 20, rightPoints = 18), Side.LEFT)
+        val finished = MatchRules.addPoint(MatchState(preset = ScoringPreset.TWENTY_ONE, leftPoints = 20, rightPoints = 18), Side.LEFT)
 
         assertTrue(MatchRules.isSetFinished(finished))
         assertFalse(MatchUiFormatter.canAddPoint(finished))
@@ -39,7 +40,7 @@ class MatchUiFormatterTest {
 
     @Test
     fun canAddPointTrueAfterStartingNextSet() {
-        val firstSet = MatchRules.addPoint(MatchState(leftPoints = 20, rightPoints = 18), Side.LEFT)
+        val firstSet = MatchRules.addPoint(MatchState(preset = ScoringPreset.TWENTY_ONE, leftPoints = 20, rightPoints = 18), Side.LEFT)
         val secondSet = MatchRules.startNextSet(firstSet)
 
         assertEquals(2, secondSet.currentSet)
@@ -48,7 +49,7 @@ class MatchUiFormatterTest {
 
     @Test
     fun canAddPointFalseAfterMatchEnds() {
-        val firstSet = MatchRules.addPoint(MatchState(leftPoints = 20, rightPoints = 10), Side.LEFT)
+        val firstSet = MatchRules.addPoint(MatchState(preset = ScoringPreset.TWENTY_ONE, leftPoints = 20, rightPoints = 10), Side.LEFT)
         val secondSet = MatchRules.addPoint(
             MatchRules.startNextSet(firstSet),
             Side.LEFT
@@ -60,14 +61,14 @@ class MatchUiFormatterTest {
 
     @Test
     fun canStartNextSetOnlyBetweenSets() {
-        val finished = MatchRules.addPoint(MatchState(leftPoints = 20, rightPoints = 18), Side.LEFT)
+        val finished = MatchRules.addPoint(MatchState(preset = ScoringPreset.TWENTY_ONE, leftPoints = 20, rightPoints = 18), Side.LEFT)
         assertTrue(MatchUiFormatter.canStartNextSet(finished))
         assertFalse(MatchUiFormatter.canStartNextSet(MatchState()))
     }
 
     @Test
     fun setMarkersReflectCompletedSet() {
-        val afterFirstSet = MatchRules.addPoint(MatchState(leftPoints = 20, rightPoints = 18), Side.LEFT)
+        val afterFirstSet = MatchRules.addPoint(MatchState(preset = ScoringPreset.TWENTY_ONE, leftPoints = 20, rightPoints = 18), Side.LEFT)
         val secondSet = MatchRules.startNextSet(afterFirstSet)
 
         val markers = MatchUiFormatter.setMarkers(secondSet)
@@ -82,7 +83,7 @@ class MatchUiFormatterTest {
 
     @Test
     fun setMarkersMarkRightWin() {
-        val afterFirstSet = MatchRules.addPoint(MatchState(leftPoints = 15, rightPoints = 20), Side.RIGHT)
+        val afterFirstSet = MatchRules.addPoint(MatchState(preset = ScoringPreset.TWENTY_ONE, leftPoints = 15, rightPoints = 20), Side.RIGHT)
 
         val markers = MatchUiFormatter.setMarkers(afterFirstSet)
 
@@ -111,5 +112,53 @@ class MatchUiFormatterTest {
         assertEquals("Reset pertandingan", MatchUiFormatter.resetDescription())
         assertEquals("Batalkan poin terakhir", MatchUiFormatter.undoDescription())
         assertEquals("Buka pengaturan", MatchUiFormatter.settingsDescription())
+    }
+
+    @Test
+    fun presetLabelFollowsActivePreset() {
+        assertEquals("15 poin", MatchUiFormatter.presetLabel(MatchState()))
+        assertEquals("21 poin", MatchUiFormatter.presetLabel(MatchState(preset = ScoringPreset.TWENTY_ONE)))
+    }
+
+    @Test
+    fun presetSelectorCopyIsIndonesian() {
+        assertEquals("Aturan skor", MatchUiFormatter.presetSelectorTitle())
+        assertEquals("15 poin (best of 3)", MatchUiFormatter.presetOptionLabel(ScoringPreset.FIFTEEN))
+        assertEquals("21 poin (best of 3)", MatchUiFormatter.presetOptionLabel(ScoringPreset.TWENTY_ONE))
+    }
+
+    @Test
+    fun presetLockedHintExplainsReset() {
+        assertEquals(
+            "Aturan terkunci selama pertandingan berjalan. Reset untuk mengganti.",
+            MatchUiFormatter.presetLockedHint()
+        )
+    }
+
+    @Test
+    fun presetChangeConfirmationCopyIsIndonesian() {
+        assertEquals("Ganti aturan skor?", MatchUiFormatter.presetChangeConfirmTitle())
+        assertEquals(
+            "Mengganti aturan akan mereset skor pertandingan. Lanjutkan?",
+            MatchUiFormatter.presetChangeConfirmMessage()
+        )
+        assertEquals("Ganti dan reset", MatchUiFormatter.presetChangeConfirmAccept())
+        assertEquals("Batal", MatchUiFormatter.presetChangeConfirmDismiss())
+    }
+
+    @Test
+    fun presetHeaderLabelCombinesBestOfAndPreset() {
+        assertEquals("Best of 3 \u00B7 15 poin", MatchUiFormatter.presetHeaderLabel(MatchState()))
+        assertEquals(
+            "Best of 3 \u00B7 21 poin",
+            MatchUiFormatter.presetHeaderLabel(MatchState(preset = ScoringPreset.TWENTY_ONE))
+        )
+        assertEquals("Aturan skor: 15 poin", MatchUiFormatter.presetHeaderDescription(MatchState()))
+    }
+
+    @Test
+    fun voiceRetryCopyIsIndonesian() {
+        assertEquals("Coba lagi", MatchUiFormatter.voiceRetryLabel())
+        assertEquals("Coba pulihkan suara", MatchUiFormatter.voiceRetryDescription())
     }
 }

@@ -14,6 +14,7 @@ import com.pointmaker.app.domain.Announcement
 import com.pointmaker.app.domain.MatchRules
 import com.pointmaker.app.domain.MatchState
 import com.pointmaker.app.domain.ScoreFormatter
+import com.pointmaker.app.domain.ScoringPreset
 import com.pointmaker.app.domain.Side
 import com.pointmaker.app.ui.MatchStateSnapshot
 import kotlinx.coroutines.Dispatchers
@@ -85,6 +86,7 @@ class WearMatchViewModel(application: Application) : AndroidViewModel(applicatio
                         prefs[COMPLETED_SETS] = encodeCompletedSets(snapshot.completedSets)
                         prefs[SERVING_SIDE] = snapshot.servingSide.name
                         prefs[MATCH_FINISHED] = snapshot.matchFinished
+                        prefs[SCORING_PRESET] = snapshot.preset.storageKey
                     }
                 }
             }
@@ -111,7 +113,13 @@ class WearMatchViewModel(application: Application) : AndroidViewModel(applicatio
         after to WearAnnouncement(texts, WearFeedback.POINT, playCue = false)
     }
 
-    fun reset() = transition { MatchState() to WearAnnouncement(emptyList(), WearFeedback.NONE, playCue = false) }
+    fun reset(preset: ScoringPreset = _state.value.preset) = transition {
+        MatchState(preset = preset) to WearAnnouncement(emptyList(), WearFeedback.NONE, playCue = false)
+    }
+
+    fun setPreset(preset: ScoringPreset) = transition { before ->
+        MatchRules.setPreset(before, preset) to WearAnnouncement(emptyList(), WearFeedback.NONE, playCue = false)
+    }
 
     fun setVoiceEnabled(enabled: Boolean) {
         _voiceEnabled.value = enabled
@@ -132,17 +140,38 @@ class WearMatchViewModel(application: Application) : AndroidViewModel(applicatio
         persistMatch(after)
     }
 
+    /**
+     * Membaca snapshot pertandingan, termasuk aturan skor yang dipakai.
+     *
+     * Aturan pembacaan preset:
+     * - kunci `scoring_preset` ADA dan dikenal: pakai nilai itu;
+     * - kunci ADA tetapi TIDAK dikenal: [ScoringPreset.DEFAULT] (15x3), tanpa crash;
+     * - kunci TIDAK ADA (data lama sebelum preset ada): bila pertandingan sudah berjalan pakai
+     *   [ScoringPreset.TWENTY_ONE] agar skor 21 poin yang tersimpan tidak berubah arti, selain
+     *   itu [ScoringPreset.DEFAULT].
+     */
     private suspend fun readSnapshot(): MatchState {
         val prefs = dataStore.data.first()
+        val completed = decodeCompletedSets(prefs[COMPLETED_SETS])
+        val currentSet = prefs[CURRENT_SET] ?: 1
+        val leftPoints = prefs[LEFT_POINTS] ?: 0
+        val rightPoints = prefs[RIGHT_POINTS] ?: 0
+        val matchFinished = prefs[MATCH_FINISHED] ?: false
+        val inProgress = leftPoints > 0 ||
+            rightPoints > 0 ||
+            currentSet > 1 ||
+            completed.isNotEmpty() ||
+            matchFinished
         return MatchStateSnapshot(
-            currentSet = prefs[CURRENT_SET] ?: 1,
-            leftPoints = prefs[LEFT_POINTS] ?: 0,
-            rightPoints = prefs[RIGHT_POINTS] ?: 0,
+            preset = ScoringPreset.fromStorage(prefs[SCORING_PRESET], inProgress),
+            currentSet = currentSet,
+            leftPoints = leftPoints,
+            rightPoints = rightPoints,
             setsWonLeft = prefs[SETS_WON_LEFT] ?: 0,
             setsWonRight = prefs[SETS_WON_RIGHT] ?: 0,
-            completedSets = decodeCompletedSets(prefs[COMPLETED_SETS]),
+            completedSets = completed,
             servingSide = Side.of(prefs[SERVING_SIDE] ?: Side.LEFT.name),
-            matchFinished = prefs[MATCH_FINISHED] ?: false
+            matchFinished = matchFinished
         ).toState()
     }
 
@@ -183,5 +212,6 @@ class WearMatchViewModel(application: Application) : AndroidViewModel(applicatio
         val SERVING_SIDE = stringPreferencesKey("serving_side")
         val MATCH_FINISHED = booleanPreferencesKey("match_finished")
         val VOICE_ENABLED = booleanPreferencesKey("voice_enabled")
+        val SCORING_PRESET = stringPreferencesKey("scoring_preset")
     }
 }

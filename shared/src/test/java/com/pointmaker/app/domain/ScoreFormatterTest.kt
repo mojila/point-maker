@@ -11,9 +11,11 @@ class ScoreFormatterTest {
         setsLeft: Int = 0,
         setsRight: Int = 0,
         currentSet: Int = 1,
-        servingSide: Side = Side.LEFT
+        servingSide: Side = Side.LEFT,
+        preset: ScoringPreset = ScoringPreset.TWENTY_ONE
     ) =
         MatchState(
+            preset = preset,
             currentSet = currentSet,
             leftPoints = left,
             rightPoints = right,
@@ -446,5 +448,102 @@ class ScoreFormatterTest {
             listOf("dua puluh sama. Deuce"),
             Announcement.forPoint(deuceBefore, deuceAfter, Side.LEFT).texts
         )
+    }
+
+    @Test
+    fun `deuce mengikuti preset`() {
+        assertEquals("empat belas sama. Deuce", ScoreFormatter.deuce(ScoringPreset.FIFTEEN))
+        assertEquals("dua puluh sama. Deuce", ScoreFormatter.deuce(ScoringPreset.TWENTY_ONE))
+    }
+
+    @Test
+    fun `deuce 15x3 diucapkan empat belas sama`() {
+        val before = stateAt(13, 14, preset = ScoringPreset.FIFTEEN)
+        val after = MatchRules.addPoint(before, Side.LEFT)
+
+        assertEquals("empat belas sama. Deuce", ScoreFormatter.pointCall(after))
+        assertEquals("empat belas sama. Deuce", ScoreFormatter.pointCall(after, Side.LEFT))
+        assertEquals(listOf("empat belas sama. Deuce"), ScoreFormatter.announcements(before, after, Side.LEFT))
+    }
+
+    @Test
+    fun `set point 15x3 pada 14-13`() {
+        val before = stateAt(13, 13, preset = ScoringPreset.FIFTEEN)
+        val after = MatchRules.addPoint(before, Side.LEFT)
+
+        assertEquals("empat belas, tiga belas. Set point untuk kiri", ScoreFormatter.pointCall(after, Side.LEFT))
+        assertEquals(
+            listOf("empat belas, tiga belas. Set point untuk kiri"),
+            Announcement.forPoint(before, after, Side.LEFT).texts
+        )
+    }
+
+    @Test
+    fun `match point 15x3 pada 14-13`() {
+        val before = stateAt(13, 13, setsLeft = 1, preset = ScoringPreset.FIFTEEN)
+        val after = MatchRules.addPoint(before, Side.LEFT)
+
+        assertEquals(
+            listOf("empat belas, tiga belas. Match point untuk kiri"),
+            Announcement.forPoint(before, after, Side.LEFT).texts
+        )
+    }
+
+    @Test
+    fun `set 15x3 selesai pada 16-14`() {
+        val before = stateAt(15, 14, preset = ScoringPreset.FIFTEEN)
+        val after = MatchRules.addPoint(before, Side.LEFT)
+
+        assertEquals(
+            listOf(
+                "enam belas, empat belas",
+                "Set pertama untuk kiri, enam belas empat belas"
+            ),
+            ScoreFormatter.announcements(before, after, Side.LEFT)
+        )
+    }
+
+    @Test
+    fun `set 15x3 cap 21 diucapkan dua puluh satu dua puluh`() {
+        val before = stateAt(20, 20, preset = ScoringPreset.FIFTEEN)
+        val after = MatchRules.addPoint(before, Side.LEFT)
+
+        assertEquals(
+            listOf(
+                "dua puluh satu, dua puluh",
+                "Set pertama untuk kiri, dua puluh satu dua puluh"
+            ),
+            ScoreFormatter.announcements(before, after, Side.LEFT)
+        )
+    }
+
+    @Test
+    fun `angka kata benar untuk rentang kedua preset`() {
+        val expected = mapOf(
+            0 to "nol",
+            1 to "satu",
+            9 to "sembilan",
+            10 to "sepuluh",
+            11 to "sebelas",
+            12 to "dua belas",
+            13 to "tiga belas",
+            14 to "empat belas",
+            15 to "lima belas",
+            16 to "enam belas",
+            17 to "tujuh belas",
+            18 to "delapan belas",
+            19 to "sembilan belas",
+            20 to "dua puluh",
+            21 to "dua puluh satu",
+            22 to "dua puluh dua",
+            25 to "dua puluh lima",
+            28 to "dua puluh delapan",
+            29 to "dua puluh sembilan",
+            30 to "tiga puluh"
+        )
+
+        expected.forEach { (value, words) ->
+            assertEquals("angka $value", words, ScoreFormatter.number(value))
+        }
     }
 }

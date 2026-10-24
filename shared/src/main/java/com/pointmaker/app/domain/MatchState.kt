@@ -1,6 +1,7 @@
 package com.pointmaker.app.domain
 
 data class MatchState(
+    val preset: ScoringPreset = ScoringPreset.DEFAULT,
     val currentSet: Int = 1,
     val leftPoints: Int = 0,
     val rightPoints: Int = 0,

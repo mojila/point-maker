@@ -14,6 +14,7 @@ import com.pointmaker.app.domain.Announcement
 import com.pointmaker.app.domain.MatchRules
 import com.pointmaker.app.domain.MatchState
 import com.pointmaker.app.domain.ScoreFormatter
+import com.pointmaker.app.domain.ScoringPreset
 import com.pointmaker.app.domain.Side
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
@@ -100,6 +101,7 @@ class MatchViewModel(application: Application) : AndroidViewModel(application) {
                         prefs[COMPLETED_SETS] = encodeCompletedSets(snapshot.completedSets)
                         prefs[SERVING_SIDE] = snapshot.servingSide.name
                         prefs[MATCH_FINISHED] = snapshot.matchFinished
+                        prefs[SCORING_PRESET] = snapshot.preset.storageKey
                     }
                 }
             }
@@ -119,7 +121,11 @@ class MatchViewModel(application: Application) : AndroidViewModel(application) {
         Transition(after, texts, false)
     }
 
-    fun reset() = transition { Transition(MatchState(), emptyList(), false) }
+    fun reset(preset: ScoringPreset = _state.value.preset) =
+        transition { Transition(MatchState(preset = preset), emptyList(), false) }
+
+    fun setPreset(preset: ScoringPreset) =
+        transition { before -> Transition(MatchRules.setPreset(before, preset), emptyList(), false) }
 
     fun setVoiceEnabled(enabled: Boolean) {
         _voiceEnabled.value = enabled
@@ -154,18 +160,38 @@ class MatchViewModel(application: Application) : AndroidViewModel(application) {
         val playCue: Boolean
     )
 
+    /**
+     * Membaca snapshot pertandingan, termasuk aturan skor yang dipakai.
+     *
+     * Aturan pembacaan preset:
+     * - kunci `scoring_preset` ADA dan dikenal: pakai nilai itu;
+     * - kunci ADA tetapi TIDAK dikenal: [ScoringPreset.DEFAULT] (15x3), tanpa crash;
+     * - kunci TIDAK ADA (data lama sebelum preset ada): bila pertandingan sudah berjalan pakai
+     *   [ScoringPreset.TWENTY_ONE] agar skor 21 poin yang tersimpan tidak berubah arti, selain
+     *   itu [ScoringPreset.DEFAULT].
+     */
     private suspend fun readSnapshot(): MatchState {
         val prefs = dataStore.data.first()
         val completed = decodeCompletedSets(prefs[COMPLETED_SETS])
+        val currentSet = prefs[CURRENT_SET] ?: 1
+        val leftPoints = prefs[LEFT_POINTS] ?: 0
+        val rightPoints = prefs[RIGHT_POINTS] ?: 0
+        val matchFinished = prefs[MATCH_FINISHED] ?: false
+        val inProgress = leftPoints > 0 ||
+            rightPoints > 0 ||
+            currentSet > 1 ||
+            completed.isNotEmpty() ||
+            matchFinished
         val snapshot = MatchStateSnapshot(
-            currentSet = prefs[CURRENT_SET] ?: 1,
-            leftPoints = prefs[LEFT_POINTS] ?: 0,
-            rightPoints = prefs[RIGHT_POINTS] ?: 0,
+            preset = ScoringPreset.fromStorage(prefs[SCORING_PRESET], inProgress),
+            currentSet = currentSet,
+            leftPoints = leftPoints,
+            rightPoints = rightPoints,
             setsWonLeft = prefs[SETS_WON_LEFT] ?: 0,
             setsWonRight = prefs[SETS_WON_RIGHT] ?: 0,
             completedSets = completed,
             servingSide = Side.of(prefs[SERVING_SIDE] ?: Side.LEFT.name),
-            matchFinished = prefs[MATCH_FINISHED] ?: false
+            matchFinished = matchFinished
         )
         return snapshot.toState()
     }
@@ -215,5 +241,6 @@ class MatchViewModel(application: Application) : AndroidViewModel(application) {
         val VOICE_ENABLED = booleanPreferencesKey("voice_enabled")
         val LEFT_LABEL = stringPreferencesKey("left_label")
         val RIGHT_LABEL = stringPreferencesKey("right_label")
+        val SCORING_PRESET = stringPreferencesKey("scoring_preset")
     }
 }

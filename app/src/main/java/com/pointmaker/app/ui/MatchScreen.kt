@@ -3,6 +3,7 @@ package com.pointmaker.app.ui
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -21,6 +22,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -39,8 +41,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -48,6 +55,7 @@ import com.pointmaker.app.R
 import com.pointmaker.app.audio.PointCuePlayer
 import com.pointmaker.app.audio.ScoreCueSequencer
 import com.pointmaker.app.domain.AnnouncementText
+import com.pointmaker.app.domain.MatchRules
 import com.pointmaker.app.domain.MatchState
 import com.pointmaker.app.domain.Side
 import com.pointmaker.app.tts.ScoreAnnouncer
@@ -94,21 +102,34 @@ fun MatchScreen(viewModel: MatchViewModel = viewModel()) {
 
     KeepScreenOn()
 
+    var announcerStatus by remember(announcer) { mutableStateOf(announcer.statusSnapshot()) }
+    LaunchedEffect(announcer) {
+        while (true) {
+            announcerStatus = announcer.statusSnapshot()
+            kotlinx.coroutines.delay(500)
+        }
+    }
+    val voiceStatus = AnnouncementText.voiceStatus(
+        announcerStatus.languageAvailable,
+        announcerStatus.engineReady,
+        voiceEnabled
+    )
+    val showVoiceRetry = voiceEnabled &&
+        (announcerStatus.recoveryExhausted || !announcerStatus.engineReady)
+
     Surface(modifier = Modifier.fillMaxSize()) {
         MatchContent(
             state = state,
             leftLabel = leftLabel,
             rightLabel = rightLabel,
-            voiceStatus = AnnouncementText.voiceStatus(
-                announcer.isIndonesianAvailable,
-                announcer.isEngineReady,
-                voiceEnabled
-            ),
+            voiceStatus = voiceStatus,
+            showVoiceRetry = showVoiceRetry,
             announceTick = announceTick,
             onAddPoint = viewModel::addPoint,
             onUndo = viewModel::undo,
             onStartNextSet = viewModel::startNextSet,
             onResetRequested = { resetConfirmationVisible = true },
+            onRetryVoice = { announcer.retryNow() },
             onOpenSettings = { settingsVisible = true }
         )
     }
@@ -118,9 +139,16 @@ fun MatchScreen(viewModel: MatchViewModel = viewModel()) {
             voiceEnabled = voiceEnabled,
             leftLabel = leftLabel,
             rightLabel = rightLabel,
+            preset = state.preset,
+            canChangePreset = MatchRules.canChangePreset(state),
             onVoiceEnabledChange = viewModel::setVoiceEnabled,
             onLeftLabelChange = viewModel::setLeftLabel,
             onRightLabelChange = viewModel::setRightLabel,
+            onPresetChange = viewModel::setPreset,
+            onResetWithPreset = { preset ->
+                announcer.resetRecoveryBudget()
+                viewModel.reset(preset)
+            },
             onDismiss = { settingsVisible = false }
         )
     }
@@ -133,6 +161,7 @@ fun MatchScreen(viewModel: MatchViewModel = viewModel()) {
             confirmButton = {
                 TextButton(
                     onClick = {
+                        announcer.resetRecoveryBudget()
                         viewModel.reset()
                         resetConfirmationVisible = false
                     },
@@ -163,11 +192,13 @@ private fun MatchContent(
     leftLabel: String,
     rightLabel: String,
     voiceStatus: String,
+    showVoiceRetry: Boolean,
     announceTick: Int,
     onAddPoint: (Side) -> Unit,
     onUndo: () -> Unit,
     onStartNextSet: () -> Unit,
     onResetRequested: () -> Unit,
+    onRetryVoice: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
     val canAdd = MatchUiFormatter.canAddPoint(state)
@@ -189,6 +220,8 @@ private fun MatchContent(
         MatchHeader(
             state = state,
             voiceStatus = voiceStatus,
+            showVoiceRetry = showVoiceRetry,
+            onRetryVoice = onRetryVoice,
             onOpenSettings = onOpenSettings
         )
 
@@ -237,6 +270,8 @@ private fun MatchContent(
 private fun MatchHeader(
     state: MatchState,
     voiceStatus: String,
+    showVoiceRetry: Boolean,
+    onRetryVoice: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
     Row(
@@ -258,9 +293,12 @@ private fun MatchHeader(
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = MatchUiFormatter.bestOfLabel(),
+                text = MatchUiFormatter.presetHeaderLabel(state),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.semantics {
+                    contentDescription = MatchUiFormatter.presetHeaderDescription(state)
+                }
             )
         }
 
@@ -299,10 +337,25 @@ private fun MatchHeader(
             text = voiceStatus,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.semantics {
-                contentDescription = MatchUiFormatter.voiceStatusDescription(voiceStatus)
-            }
+            modifier = Modifier
+                .weight(1f)
+                .semantics {
+                    contentDescription = MatchUiFormatter.voiceStatusDescription(voiceStatus)
+                }
         )
+        if (showVoiceRetry) {
+            TextButton(
+                onClick = onRetryVoice,
+                modifier = Modifier
+                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    .semantics { contentDescription = MatchUiFormatter.voiceRetryDescription() }
+            ) {
+                Text(
+                    text = MatchUiFormatter.voiceRetryLabel(),
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
+        }
     }
 }
 
@@ -418,20 +471,85 @@ private fun AddPointButton(
                 contentDescription = "${MatchUiFormatter.addPointDescription(label)}, skor ${points}"
             }
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
-            Text(
-                text = MatchUiFormatter.scoreText(points),
-                fontSize = 112.sp,
-                fontWeight = FontWeight.Bold
+            ScoreBox(
+                points = points,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
             )
         }
     }
 }
+
+@Composable
+private fun ScoreBox(points: Int, modifier: Modifier = Modifier) {
+    BoxWithConstraints(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        val measurer = rememberTextMeasurer()
+        val text = MatchUiFormatter.scoreText(points)
+        val scoreStyle = LocalTextStyle.current.merge(
+            TextStyle(fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        )
+        val availableWidth = constraints.maxWidth
+        val availableHeight = constraints.maxHeight
+        val fontSize = remember(measurer, text, scoreStyle, availableWidth, availableHeight) {
+            fitScoreFontSize(
+                measurer = measurer,
+                text = text,
+                baseStyle = scoreStyle,
+                maxWidth = availableWidth,
+                maxHeight = availableHeight
+            )
+        }
+        Text(
+            text = text,
+            style = scoreStyle.copy(fontSize = fontSize),
+            maxLines = 1,
+            softWrap = false
+        )
+    }
+}
+
+private fun fitScoreFontSize(
+    measurer: TextMeasurer,
+    text: String,
+    baseStyle: TextStyle,
+    maxWidth: Int,
+    maxHeight: Int
+): TextUnit {
+    if (maxWidth <= 0 || maxHeight <= 0) return MIN_SCORE_FONT
+    var candidateSp = MAX_SCORE_FONT.value
+    while (true) {
+        val size = measurer.measure(
+            text = AnnotatedString(text),
+            style = baseStyle.copy(fontSize = candidateSp.sp),
+            maxLines = 1,
+            softWrap = false
+        ).size
+        if (size.width <= maxWidth && size.height <= maxHeight) return candidateSp.sp
+        if (candidateSp <= MIN_SCORE_FONT.value) break
+        candidateSp = (candidateSp - SCORE_FONT_STEP.value).coerceAtLeast(MIN_SCORE_FONT.value)
+    }
+    // Lantai 56sp dipertahankan walau hasil pengukuran menyatakan tidak muat: skor harus
+    // tetap terbaca dari jarak jauh, dan ScoreBox sudah diberi ruang nyata lewat weight(1f).
+    return MIN_SCORE_FONT
+}
+
+private val MAX_SCORE_FONT = 112.sp
+private val MIN_SCORE_FONT = 56.sp
+private val SCORE_FONT_STEP = 4.sp
 
 @Composable
 private fun BottomControls(
