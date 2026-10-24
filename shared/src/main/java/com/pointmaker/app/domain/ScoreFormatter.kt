@@ -10,7 +10,7 @@ object ScoreFormatter {
     private val TENS = mapOf(2 to "dua puluh", 3 to "tiga puluh")
 
     fun number(value: Int): String {
-        val clamped = value.coerceIn(0, MatchRules.HARD_CAP)
+        val clamped = value.coerceIn(0, ScoringPreset.MAX_POINTS)
         if (clamped < ZERO_TO_ELEVEN.size) return ZERO_TO_ELEVEN[clamped]
         if (clamped < 20) return ZERO_TO_ELEVEN[clamped - 10] + " belas"
         val tens = TENS[clamped / 10] ?: error("tidak ada puluhan untuk $clamped")
@@ -44,7 +44,7 @@ object ScoreFormatter {
     fun pointCall(state: MatchState): String = pointCall(state, scoringSideOf(state))
 
     fun pointCall(state: MatchState, scoringSide: Side): String {
-        if (MatchRules.isDeuce(state)) return deuce()
+        if (MatchRules.isDeuce(state)) return deuce(state.preset)
         val score = scorePair(scoringSide, state.leftPoints, state.rightPoints)
         if (MatchRules.isMatchPoint(state, scoringSide)) {
             return "$score. Match point untuk ${sideName(scoringSide)}"
@@ -69,7 +69,7 @@ object ScoreFormatter {
         else -> state.servingSide
     }
 
-    fun deuce(): String = "dua puluh sama. Deuce"
+    fun deuce(preset: ScoringPreset): String = "${number(preset.deucePoints)} sama. Deuce"
 
     fun setFinished(winner: Side, setNumber: Int, left: Int, right: Int): String =
         "Set ${setOrdinal(setNumber)} untuk ${sideName(winner)}, ${scorePairSpaced(winner, left, right)}"
@@ -84,7 +84,7 @@ object ScoreFormatter {
 
     private fun scoringCall(before: MatchState, scoringSide: Side): String {
         val scoring = MatchRules.scoredOnly(before, scoringSide)
-        if (MatchRules.isDeuce(scoring)) return deuce()
+        if (MatchRules.isDeuce(scoring)) return deuce(scoring.preset)
         val score = scorePair(scoringSide, scoring.leftPoints, scoring.rightPoints)
         if (MatchRules.isMatchPoint(scoring, scoringSide)) {
             return "$score. Match point untuk ${sideName(scoringSide)}"

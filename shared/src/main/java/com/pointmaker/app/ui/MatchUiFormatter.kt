@@ -3,6 +3,7 @@ package com.pointmaker.app.ui
 import com.pointmaker.app.domain.MatchRules
 import com.pointmaker.app.domain.MatchState
 import com.pointmaker.app.domain.ScoreFormatter
+import com.pointmaker.app.domain.ScoringPreset
 import com.pointmaker.app.domain.Side
 
 enum class SetMarkerState {
@@ -101,6 +102,34 @@ object MatchUiFormatter {
     fun rightLabelCaption(): String = "Label sisi kanan"
 
     fun closeSettingsDescription(): String = "Tutup pengaturan"
+
+    fun presetLabel(state: MatchState): String = state.preset.label
+
+    fun presetSelectorTitle(): String = "Aturan skor"
+
+    fun presetOptionLabel(preset: ScoringPreset): String = "${preset.label} (best of 3)"
+
+    fun presetLockedHint(): String =
+        "Aturan terkunci selama pertandingan berjalan. Reset untuk mengganti."
+
+    fun presetChangeConfirmTitle(): String = "Ganti aturan skor?"
+
+    fun presetChangeConfirmMessage(): String =
+        "Mengganti aturan akan mereset skor pertandingan. Lanjutkan?"
+
+    fun presetChangeConfirmAccept(): String = "Ganti dan reset"
+
+    fun presetChangeConfirmDismiss(): String = "Batal"
+
+    fun presetHeaderLabel(state: MatchState): String =
+        "${bestOfLabel()} \u00B7 ${presetLabel(state)}"
+
+    fun presetHeaderDescription(state: MatchState): String =
+        "Aturan skor: ${presetLabel(state)}"
+
+    fun voiceRetryLabel(): String = "Coba lagi"
+
+    fun voiceRetryDescription(): String = "Coba pulihkan suara"
 
     private fun completedAt(state: MatchState, number: Int): Pair<Int, Int>? =
         state.completedSets.getOrNull(number - 1)

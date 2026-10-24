@@ -15,14 +15,25 @@ class MatchRulesTest {
         return current
     }
 
-    private fun stateAt(left: Int, right: Int, setsLeft: Int = 0, setsRight: Int = 0, currentSet: Int = 1) =
-        MatchState(
-            currentSet = currentSet,
-            leftPoints = left,
-            rightPoints = right,
-            setsWonLeft = setsLeft,
-            setsWonRight = setsRight
-        )
+    private fun stateAt(
+        left: Int,
+        right: Int,
+        setsLeft: Int = 0,
+        setsRight: Int = 0,
+        currentSet: Int = 1,
+        preset: ScoringPreset = ScoringPreset.TWENTY_ONE
+    ) = MatchState(
+        preset = preset,
+        currentSet = currentSet,
+        leftPoints = left,
+        rightPoints = right,
+        setsWonLeft = setsLeft,
+        setsWonRight = setsRight
+    )
+
+    private fun initial21() = MatchState(preset = ScoringPreset.TWENTY_ONE)
+
+    private fun initial15() = MatchState(preset = ScoringPreset.FIFTEEN)
 
     @Test
     fun `deuce 20-20 poin berikutnya tidak mengakhiri set`() {
@@ -100,7 +111,7 @@ class MatchRulesTest {
 
     @Test
     fun `best of 3 selesai setelah dua set dan addPoint menjadi no-op`() {
-        var state = MatchRules.initial()
+        var state = initial21()
         state = rally(state, Side.LEFT, 21)
         assertEquals(1, state.setsWonLeft)
         assertFalse(state.matchFinished)
@@ -123,7 +134,7 @@ class MatchRulesTest {
 
     @Test
     fun `set selesai menghentikan poin dan startNextSet tidak destruktif`() {
-        var state = rally(MatchRules.initial(), Side.RIGHT, 21)
+        var state = rally(initial21(), Side.RIGHT, 21)
 
         assertEquals(Side.RIGHT, MatchRules.setWinner(state))
         assertEquals(1, state.currentSet)
@@ -161,13 +172,13 @@ class MatchRulesTest {
 
     @Test
     fun `undo pada state awal tidak berubah`() {
-        val initial = MatchRules.initial()
+        val initial = initial21()
         assertEquals(initial, MatchRules.undo(initial))
     }
 
     @Test
     fun `undo membatalkan poin biasa satu langkah`() {
-        var state = MatchRules.initial()
+        var state = initial21()
         state = MatchRules.addPoint(state, Side.LEFT)
         state = MatchRules.addPoint(state, Side.RIGHT)
         state = MatchRules.addPoint(state, Side.RIGHT)
@@ -182,11 +193,11 @@ class MatchRulesTest {
 
     @Test
     fun `reset kembali ke 0-0 set 1`() {
-        var state = rally(MatchRules.initial(), Side.LEFT, 21)
+        var state = rally(initial21(), Side.LEFT, 21)
         state = MatchRules.startNextSet(state)
         state = rally(state, Side.RIGHT, 5)
 
-        val reset = MatchRules.initial()
+        val reset = initial21()
 
         assertEquals(0, reset.leftPoints)
         assertEquals(0, reset.rightPoints)
@@ -201,18 +212,18 @@ class MatchRulesTest {
 
     @Test
     fun `pemenang set servis pertama di set berikutnya`() {
-        val leftWins = rally(MatchRules.initial(), Side.LEFT, 21)
+        val leftWins = rally(initial21(), Side.LEFT, 21)
         assertEquals(Side.LEFT, leftWins.servingSide)
         assertEquals(Side.LEFT, MatchRules.startNextSet(leftWins).servingSide)
 
-        val rightWins = rally(MatchRules.initial(), Side.RIGHT, 21)
+        val rightWins = rally(initial21(), Side.RIGHT, 21)
         assertEquals(Side.RIGHT, rightWins.servingSide)
         assertEquals(Side.RIGHT, MatchRules.startNextSet(rightWins).servingSide)
     }
 
     @Test
     fun `lastSetWinner mengembalikan pemenang set yang baru selesai`() {
-        val state = rally(MatchRules.initial(), Side.LEFT, 21)
+        val state = rally(initial21(), Side.LEFT, 21)
         assertEquals(Side.LEFT, MatchRules.lastSetWinner(state))
 
         val next = MatchRules.startNextSet(state)
@@ -222,7 +233,7 @@ class MatchRulesTest {
 
     @Test
     fun `state asli tidak termutasi oleh addPoint`() {
-        val before = MatchRules.initial()
+        val before = initial21()
         val after = MatchRules.addPoint(before, Side.LEFT)
 
         assertEquals(0, before.leftPoints)
@@ -233,7 +244,7 @@ class MatchRulesTest {
 
     @Test
     fun `history tidak menyimpan riwayat secara rekursif`() {
-        var state = MatchRules.initial()
+        var state = initial21()
         repeat(5) { state = MatchRules.addPoint(state, Side.LEFT) }
 
         assertEquals(5, state.history.size)
@@ -242,7 +253,7 @@ class MatchRulesTest {
 
     @Test
     fun `set tiga dimulai dari nol dan pertandingan tiga set`() {
-        var state = rally(MatchRules.initial(), Side.LEFT, 21)
+        var state = rally(initial21(), Side.LEFT, 21)
         state = MatchRules.startNextSet(state)
         state = rally(state, Side.RIGHT, 21)
         assertEquals(1, state.setsWonLeft)
@@ -258,5 +269,149 @@ class MatchRulesTest {
         assertTrue(state.matchFinished)
         assertEquals(Side.LEFT, MatchRules.matchWinner(state))
         assertEquals(listOf(21 to 0, 0 to 21, 21 to 0), state.completedSets)
+    }
+
+    @Test
+    fun `preset 15 deuce 14-14 belum mengakhiri set`() {
+        val deuce = stateAt(14, 14, preset = ScoringPreset.FIFTEEN)
+        assertTrue(MatchRules.isDeuce(deuce))
+
+        val after = MatchRules.addPoint(deuce, Side.LEFT)
+
+        assertEquals(15, after.leftPoints)
+        assertEquals(14, after.rightPoints)
+        assertFalse(MatchRules.isSetFinished(after))
+        assertNull(MatchRules.setWinner(after))
+    }
+
+    @Test
+    fun `preset 15 15-14 belum mengakhiri set`() {
+        val led = stateAt(15, 14, preset = ScoringPreset.FIFTEEN)
+
+        assertFalse(MatchRules.isSetFinished(led))
+        assertEquals(Side.LEFT, MatchRules.setWinner(stateAt(16, 14, preset = ScoringPreset.FIFTEEN)))
+    }
+
+    @Test
+    fun `preset 15 16-14 mengakhiri set`() {
+        val after = MatchRules.addPoint(stateAt(15, 14, preset = ScoringPreset.FIFTEEN), Side.LEFT)
+
+        assertEquals(16, after.leftPoints)
+        assertEquals(14, after.rightPoints)
+        assertTrue(MatchRules.isSetFinished(after))
+        assertEquals(Side.LEFT, MatchRules.setWinner(after))
+        assertEquals(1, after.setsWonLeft)
+        assertEquals(listOf(16 to 14), after.completedSets)
+    }
+
+    @Test
+    fun `preset 15 deuce 20-20 ditutup 21-20 dan tidak pernah 22-20`() {
+        val won = MatchRules.addPoint(stateAt(20, 20, preset = ScoringPreset.FIFTEEN), Side.LEFT)
+
+        assertEquals(21, won.leftPoints)
+        assertEquals(20, won.rightPoints)
+        assertTrue(MatchRules.isSetFinished(won))
+        assertEquals(Side.LEFT, MatchRules.setWinner(won))
+
+        val frozen = MatchRules.addPoint(won, Side.LEFT)
+        assertSame(won, frozen)
+    }
+
+    @Test
+    fun `preset 15 best of 3 selesai setelah dua set`() {
+        var state = rally(initial15(), Side.LEFT, 15)
+        assertEquals(1, state.setsWonLeft)
+        assertFalse(state.matchFinished)
+
+        state = MatchRules.startNextSet(state)
+        state = rally(state, Side.LEFT, 15)
+
+        assertTrue(state.matchFinished)
+        assertEquals(Side.LEFT, MatchRules.matchWinner(state))
+        assertEquals(listOf(15 to 0, 15 to 0), state.completedSets)
+    }
+
+    @Test
+    fun `preset 15 set ketiga hanya bila kedudukan 1-1`() {
+        var state = rally(initial15(), Side.LEFT, 15)
+        state = MatchRules.startNextSet(state)
+        state = rally(state, Side.RIGHT, 15)
+
+        assertEquals(1, state.setsWonLeft)
+        assertEquals(1, state.setsWonRight)
+        assertFalse(state.matchFinished)
+
+        state = MatchRules.startNextSet(state)
+        assertEquals(3, state.currentSet)
+
+        state = rally(state, Side.LEFT, 15)
+        assertTrue(state.matchFinished)
+        assertEquals(listOf(15 to 0, 0 to 15, 15 to 0), state.completedSets)
+    }
+
+    @Test
+    fun `set target dan set point mengikuti preset`() {
+        assertEquals(15, MatchRules.setTarget(stateAt(14, 13, preset = ScoringPreset.FIFTEEN), Side.LEFT))
+        assertTrue(MatchRules.isSetPoint(stateAt(14, 13, preset = ScoringPreset.FIFTEEN), Side.LEFT))
+        assertFalse(MatchRules.isSetPoint(stateAt(14, 13, preset = ScoringPreset.FIFTEEN), Side.RIGHT))
+        assertEquals(16, MatchRules.setTarget(stateAt(14, 14, preset = ScoringPreset.FIFTEEN), Side.LEFT))
+        assertEquals(21, MatchRules.setTarget(stateAt(20, 20, preset = ScoringPreset.FIFTEEN), Side.LEFT))
+        assertEquals(21, MatchRules.setTarget(stateAt(20, 18), Side.LEFT))
+        assertEquals(30, MatchRules.setTarget(stateAt(29, 29), Side.LEFT))
+        assertTrue(MatchRules.isSetPoint(stateAt(20, 18), Side.LEFT))
+    }
+
+    @Test
+    fun `match point mengikuti preset`() {
+        assertTrue(MatchRules.isMatchPoint(stateAt(14, 13, setsLeft = 1, preset = ScoringPreset.FIFTEEN), Side.LEFT))
+        assertFalse(MatchRules.isMatchPoint(stateAt(14, 13, preset = ScoringPreset.FIFTEEN), Side.LEFT))
+        assertTrue(MatchRules.isMatchPoint(stateAt(20, 18, setsLeft = 1), Side.LEFT))
+        assertFalse(MatchRules.isMatchPoint(stateAt(14, 13, setsLeft = 1, preset = ScoringPreset.FIFTEEN), Side.RIGHT))
+    }
+
+    @Test
+    fun `setPreset diterima saat state bersih`() {
+        val clean = MatchState()
+        assertEquals(ScoringPreset.FIFTEEN, clean.preset)
+        assertTrue(MatchRules.canChangePreset(clean))
+
+        val switched = MatchRules.setPreset(clean, ScoringPreset.TWENTY_ONE)
+
+        assertEquals(ScoringPreset.TWENTY_ONE, switched.preset)
+        assertEquals(0, switched.leftPoints)
+    }
+
+    @Test
+    fun `setPreset ditolak saat pertandingan sudah berjalan`() {
+        val cases = listOf(
+            stateAt(1, 0),
+            stateAt(0, 1),
+            stateAt(0, 0, currentSet = 2),
+            MatchState(completedSets = listOf(21 to 19), setsWonLeft = 1),
+            MatchState(matchFinished = true)
+        )
+
+        cases.forEach { state ->
+            assertFalse(MatchRules.canChangePreset(state))
+            assertSame(state, MatchRules.setPreset(state, ScoringPreset.FIFTEEN))
+        }
+    }
+
+    @Test
+    fun `preset ikut tersimpan di history sehingga undo tidak mengubahnya`() {
+        val started = MatchRules.setPreset(MatchState(), ScoringPreset.TWENTY_ONE)
+        val after = MatchRules.addPoint(started, Side.LEFT)
+
+        assertEquals(ScoringPreset.TWENTY_ONE, after.preset)
+        assertEquals(ScoringPreset.TWENTY_ONE, after.history.single().preset)
+        assertEquals(ScoringPreset.TWENTY_ONE, MatchRules.undo(after).preset)
+    }
+
+    @Test
+    fun `startNextSet mempertahankan preset`() {
+        var state = rally(initial15(), Side.LEFT, 15)
+        state = MatchRules.startNextSet(state)
+
+        assertEquals(ScoringPreset.FIFTEEN, state.preset)
     }
 }

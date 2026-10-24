@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -31,17 +32,24 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.wear.compose.material3.AlertDialog
 import androidx.wear.compose.material3.Button
+import androidx.wear.compose.material3.LocalTextStyle
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.TextButton
@@ -94,35 +102,41 @@ fun WearMatchRoute(viewModel: WearMatchViewModel = viewModel()) {
         }
     }
 
-    var voiceStatus by remember {
-        mutableStateOf(
-            AnnouncementText.voiceStatus(
-                announcer.isIndonesianAvailable,
-                announcer.isEngineReady,
-                voiceEnabled
-            )
-        )
-    }
-    LaunchedEffect(voiceEnabled) {
+    var announcerStatus by remember(announcer) { mutableStateOf(announcer.statusSnapshot()) }
+    LaunchedEffect(announcer) {
         while (true) {
-            voiceStatus = AnnouncementText.voiceStatus(
-                announcer.isIndonesianAvailable,
-                announcer.isEngineReady,
-                voiceEnabled
-            )
+            announcerStatus = announcer.statusSnapshot()
             kotlinx.coroutines.delay(500)
         }
     }
+    val voiceStatus = AnnouncementText.voiceStatus(
+        announcerStatus.languageAvailable,
+        announcerStatus.engineReady,
+        voiceEnabled
+    )
 
     WearMatchScreen(
         state = state,
         voiceStatus = voiceStatus,
         voiceEnabled = voiceEnabled,
+        voiceEngineReady = announcerStatus.engineReady,
         onAddPoint = viewModel::addPoint,
         onUndo = viewModel::undo,
         onStartNextSet = viewModel::startNextSet,
-        onReset = viewModel::reset,
-        onToggleVoice = { viewModel.setVoiceEnabled(!voiceEnabled) }
+        onReset = {
+            announcer.resetRecoveryBudget()
+            viewModel.reset()
+        },
+        onToggleVoice = {
+            // Saat suara menyala tetapi engine mati, ketukan berfungsi sebagai "coba lagi".
+            // Saat pengguna sengaja membisukan suara, ketukan tetap mengubah preferensi mute
+            // (paritas dengan ponsel: tombol "Coba lagi" hanya tampil bila suara menyala).
+            if (voiceEnabled && !announcerStatus.engineReady) {
+                announcer.retryNow()
+            } else {
+                viewModel.setVoiceEnabled(!voiceEnabled)
+            }
+        }
     )
 }
 
@@ -131,6 +145,7 @@ fun WearMatchScreen(
     state: MatchState,
     voiceStatus: String,
     voiceEnabled: Boolean,
+    voiceEngineReady: Boolean,
     onAddPoint: (Side) -> Unit,
     onUndo: () -> Unit,
     onStartNextSet: () -> Unit,
@@ -241,6 +256,7 @@ fun WearMatchScreen(
             canUndo = canUndo,
             voiceStatus = voiceStatus,
             voiceEnabled = voiceEnabled,
+            voiceEngineReady = voiceEngineReady,
             extraHorizontalPadding = insets.controlsExtraHorizontalDp.dp,
             onUndo = onUndo,
             onToggleVoice = onToggleVoice,
@@ -284,15 +300,15 @@ private fun Header(state: MatchState, voiceStatus: String) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "${MatchUiFormatter.setHeader(state)} \u00B7 ${WearUiText.miniScore(state)}",
+            text = WearUiText.headerLine(state),
             fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            maxLines = 2,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
         Text(
-            text = voiceStatus,
+            text = WearUiText.statusLine(state, voiceStatus),
             fontSize = 10.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -305,6 +321,14 @@ private fun Header(state: MatchState, voiceStatus: String) {
     }
 }
 
+/**
+ * Zona poin satu pemain.
+ *
+ * Prioritas tata letak: angka skor tidak boleh terpotong karena itu informasi paling
+ * kritis saat bertanding. Label sisi ("Kiri"/"Kanan") boleh disembunyikan saat ruang
+ * vertikal sempit (mis. layar bulat dengan banner panjang); sisi tetap dapat dikenali
+ * lewat `contentDescription` dan warna/posisi zona.
+ */
 @Composable
 private fun PointZone(
     side: Side,
@@ -357,24 +381,78 @@ private fun PointZone(
         ) {
             val zoneHeightDp = maxHeight.value
             val labelSize = (zoneHeightDp * 0.16f).coerceIn(11f, 14f).sp
-            val scoreSize = (zoneHeightDp * 0.46f).coerceIn(24f, 72f).sp
-
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = label,
-                    fontSize = labelSize,
-                    fontWeight = FontWeight.SemiBold,
-                    color = content,
-                    textAlign = TextAlign.Center,
+            val measurer = rememberTextMeasurer()
+            val density = LocalDensity.current
+            val scoreText = MatchUiFormatter.scoreText(points)
+            val baseTextStyle = LocalTextStyle.current
+            val scoreStyle = remember(baseTextStyle) {
+                baseTextStyle.merge(TextStyle(fontWeight = FontWeight.Bold, textAlign = TextAlign.Center))
+            }
+            val labelStyle = remember(baseTextStyle) {
+                baseTextStyle.merge(TextStyle(fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center))
+            }
+            val availableWidth = constraints.maxWidth
+            val availableHeight = constraints.maxHeight
+            val gapPx = with(density) { SCORE_GAP.roundToPx() }
+            val minScoreHeight = remember(measurer, scoreStyle) {
+                measurer.measure(
+                    text = AnnotatedString("0"),
+                    style = scoreStyle.copy(fontSize = MIN_SCORE_SP.sp),
                     maxLines = 1,
                     softWrap = false
+                ).size.height
+            }
+            val labelHeight = remember(measurer, label, labelSize, labelStyle) {
+                measurer.measure(
+                    text = AnnotatedString(label),
+                    style = labelStyle.copy(fontSize = labelSize),
+                    maxLines = 1,
+                    softWrap = false
+                ).size.height
+            }
+            val layout = WearPointZoneLayout.compute(
+                availableHeight = availableHeight,
+                labelHeight = labelHeight,
+                gapPx = gapPx,
+                minScoreHeight = minScoreHeight
+            )
+            val showLabel = layout.showLabel
+            val scoreMaxHeight = layout.scoreMaxHeight
+            val scoreSize = remember(
+                measurer,
+                scoreText,
+                scoreStyle,
+                availableWidth,
+                availableHeight,
+                scoreMaxHeight
+            ) {
+                fitScoreFontSize(
+                    measurer = measurer,
+                    text = scoreText,
+                    baseStyle = scoreStyle,
+                    maxWidth = availableWidth,
+                    maxHeight = scoreMaxHeight,
+                    maxSizeSp = (zoneHeightDp * 0.46f).coerceIn(24f, 72f)
                 )
+            }
+
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                if (showLabel) {
+                    Text(
+                        text = label,
+                        fontSize = labelSize,
+                        fontWeight = FontWeight.SemiBold,
+                        color = content,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                    Spacer(modifier = Modifier.height(SCORE_GAP))
+                }
                 Text(
-                    text = MatchUiFormatter.scoreText(points),
-                    fontSize = scoreSize,
-                    fontWeight = FontWeight.Bold,
+                    text = scoreText,
+                    style = scoreStyle.copy(fontSize = scoreSize),
                     color = content,
-                    textAlign = TextAlign.Center,
                     maxLines = 1,
                     softWrap = false
                 )
@@ -383,16 +461,47 @@ private fun PointZone(
     }
 }
 
+private fun fitScoreFontSize(
+    measurer: TextMeasurer,
+    text: String,
+    baseStyle: TextStyle,
+    maxWidth: Int,
+    maxHeight: Int,
+    maxSizeSp: Float
+): TextUnit {
+    if (maxWidth <= 0 || maxHeight <= 0) return MIN_SCORE_SP.sp
+    var candidate = maxSizeSp
+    while (true) {
+        val size = measurer.measure(
+            text = AnnotatedString(text),
+            style = baseStyle.copy(fontSize = candidate.sp),
+            maxLines = 1,
+            softWrap = false
+        ).size
+        if (size.width <= maxWidth && size.height <= maxHeight) return candidate.sp
+        if (candidate <= MIN_SCORE_SP) break
+        candidate = (candidate - SCORE_STEP_SP).coerceAtLeast(MIN_SCORE_SP)
+    }
+    return MIN_SCORE_SP.sp
+}
+
+private const val MIN_SCORE_SP = 18f
+private const val SCORE_STEP_SP = 2f
+private val SCORE_GAP = 2.dp
+
 @Composable
 private fun BottomControls(
     canUndo: Boolean,
     voiceStatus: String,
     voiceEnabled: Boolean,
+    voiceEngineReady: Boolean,
     extraHorizontalPadding: Dp,
     onUndo: () -> Unit,
     onToggleVoice: () -> Unit,
     onResetRequested: () -> Unit
 ) {
+    // "Coba lagi" hanya relevan bila pengguna memang ingin suara menyala (paritas dengan ponsel).
+    val showRetry = voiceEnabled && !voiceEngineReady
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -422,10 +531,20 @@ private fun BottomControls(
             modifier = Modifier
                 .weight(1f)
                 .heightIn(min = 48.dp)
-                .semantics { contentDescription = MatchUiFormatter.voiceStatusDescription(voiceStatus) }
+                .semantics {
+                    contentDescription = if (showRetry) {
+                        MatchUiFormatter.voiceRetryDescription()
+                    } else {
+                        MatchUiFormatter.voiceStatusDescription(voiceStatus)
+                    }
+                }
         ) {
             Text(
-                text = if (voiceEnabled) "Suara on" else "Suara off",
+                text = if (showRetry) {
+                    MatchUiFormatter.voiceRetryLabel()
+                } else {
+                    if (voiceEnabled) "Suara on" else "Suara off"
+                },
                 fontSize = 11.sp,
                 maxLines = 1
             )
